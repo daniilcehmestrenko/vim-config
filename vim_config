@@ -12,19 +12,10 @@ set autoindent
 set fileformat=unix
 filetype indent on      " load filetype-specific indent files
 
-" for tabulation
-set smartindent
-set tabstop=2
-set expandtab
-set shiftwidth=2
-vmap <C-c> "+y
-map <F3> :NERDTreeToggle<CR>
-
-inoremap jk <esc>
-
 call plug#begin('~/.vim/plugged')
 
 Plug 'preservim/nerdtree'
+
 Plug 'neovim/nvim-lspconfig'
 Plug 'hrsh7th/nvim-cmp'
 Plug 'hrsh7th/cmp-nvim-lsp'
@@ -40,68 +31,42 @@ Plug 'ayu-theme/ayu-vim'
 Plug 'xiyaowong/nvim-transparent'
 
 Plug 'Pocco81/auto-save.nvim'
-Plug 'justinmk/vim-sneak'
+Plug 'bmatcuk/stylelint-lsp'
 
-" JS/JSX/TS
-Plug 'pangloss/vim-javascript'
-Plug 'leafgarland/typescript-vim'
-Plug 'peitalin/vim-jsx-typescript'
-Plug 'maxmellon/vim-jsx-pretty'
-" TS from here https://jose-elias-alvarez.medium.com/configuring-neovims-lsp-client-for-typescript-development-5789d58ea9c
 Plug 'jose-elias-alvarez/null-ls.nvim'
 Plug 'jose-elias-alvarez/nvim-lsp-ts-utils'
 Plug 'nvim-lua/plenary.nvim'
 
-Plug 'prettier/vim-prettier', {
-  \ 'do': 'npm install --frozen-lockfile --production',
-  \ 'for': ['javascript', 'typescript', 'typescriptreact', 'javascriptreact', 'css', 'less', 'scss', 'json', 'graphql', 'markdown', 'vue', 'svelte', 'yaml', 'html'] }
-
-Plug 'bmatcuk/stylelint-lsp'
-
-Plug 'nvim-telescope/telescope.nvim', { 'tag': '0.1.0' }
-Plug 'nvim-telescope/telescope-fzf-native.nvim', { 'do': 'make' }
-
-" Convenient floating terminal window
-"Plug 'voldikss/vim-floaterm'
-
 call plug#end()
+
+map <C-c> :"y+<CR>
+nnoremap <F3> :NERDTreeToggle<CR>
+let g:transparent_enabled = v:true
 
 " Leader bind to space
 let mapleader = ","
-
-" Netrw file explorer settings
-let g:netrw_banner = 0 " hide banner above files
-let g:netrw_liststyle = 3 " tree instead of plain view
-let g:netrw_browse_split = 3 " vertical split window when Enter pressed on file
 
 " Automatically format frontend files with prettier after file save
 let g:prettier#autoformat = 1
 let g:prettier#autoformat_require_pragma = 0
 
-" Disable quickfix window for prettier
-let g:prettier#quickfix_enabled = 0
-
-" Turn on vim-sneak
-let g:sneak#label = 1
-
 colorscheme gruvbox
-"colorscheme OceanicNext
-"let g:material_terminal_italics = 1
-" variants: default, palenight, ocean, lighter, darker, default-community,
-"           palenight-community, ocean-community, lighter-community,
-"           darker-community
-"let g:material_theme_style = 'darker'
-"colorscheme material
+
 if (has('termguicolors'))
   set termguicolors
 endif
 
-" variants: mirage, dark, dark
-"let ayucolor="mirage"
-"colorscheme ayu
+" Run Python and C files by Ctrl+h
+autocmd FileType python map <buffer> <C-h> :w<CR>:exec '!python3.10' shellescape(@%, 1)<CR>
+autocmd FileType python imap <buffer> <C-h> <esc>:w<CR>:exec '!python3.10' shellescape(@%, 1)<CR>
 
-" turn off search highlight
-nnoremap ,<space> :nohlsearch<CR>
+autocmd FileType c map <buffer> <C-h> :w<CR>:exec '!gcc' shellescape(@%, 1) '-o out; ./out'<CR>
+autocmd FileType c imap <buffer> <C-h> <esc>:w<CR>:exec '!gcc' shellescape(@%, 1) '-o out; ./out'<CR>
+
+autocmd FileType python set colorcolumn=79
+
+set relativenumber
+set rnu
 
 lua << EOF
 -- Set completeopt to have a better completion experience
@@ -247,146 +212,3 @@ for _, lsp in ipairs(servers) do
   }
 end
 EOF
-
-
-" Delete buffer while keeping window layout (don't close buffer's windows).
-" Version 2008-11-18 from http://vim.wikia.com/wiki/VimTip165
-if v:version < 700 || exists('loaded_bclose') || &cp
-  finish
-endif
-let loaded_bclose = 1
-if !exists('bclose_multiple')
-  let bclose_multiple = 1
-endif
-
-" Display an error message.
-function! s:Warn(msg)
-  echohl ErrorMsg
-  echomsg a:msg
-  echohl NONE
-endfunction
-
-" Command ':Bclose' executes ':bd' to delete buffer in current window.
-" The window will show the alternate buffer (Ctrl-^) if it exists,
-" or the previous buffer (:bp), or a blank buffer if no previous.
-" Command ':Bclose!' is the same, but executes ':bd!' (discard changes).
-" An optional argument can specify which buffer to close (name or number).
-function! s:Bclose(bang, buffer)
-  if empty(a:buffer)
-    let btarget = bufnr('%')
-  elseif a:buffer =~ '^\d\+$'
-    let btarget = bufnr(str2nr(a:buffer))
-  else
-    let btarget = bufnr(a:buffer)
-  endif
-  if btarget < 0
-    call s:Warn('No matching buffer for '.a:buffer)
-    return
-  endif
-  if empty(a:bang) && getbufvar(btarget, '&modified')
-    call s:Warn('No write since last change for buffer '.btarget.' (use :Bclose!)')
-    return
-  endif
-  " Numbers of windows that view target buffer which we will delete.
-  let wnums = filter(range(1, winnr('$')), 'winbufnr(v:val) == btarget')
-  if !g:bclose_multiple && len(wnums) > 1
-    call s:Warn('Buffer is in multiple windows (use ":let bclose_multiple=1")')
-    return
-  endif
-  let wcurrent = winnr()
-  for w in wnums
-    execute w.'wincmd w'
-    let prevbuf = bufnr('#')
-    if prevbuf > 0 && buflisted(prevbuf) && prevbuf != btarget
-      buffer #
-    else
-      bprevious
-    endif
-    if btarget == bufnr('%')
-      " Numbers of listed buffers which are not the target to be deleted.
-      let blisted = filter(range(1, bufnr('$')), 'buflisted(v:val) && v:val != btarget')
-      " Listed, not target, and not displayed.
-      let bhidden = filter(copy(blisted), 'bufwinnr(v:val) < 0')
-      " Take the first buffer, if any (could be more intelligent).
-      let bjump = (bhidden + blisted + [-1])[0]
-      if bjump > 0
-        execute 'buffer '.bjump
-      else
-        execute 'enew'.a:bang
-      endif
-    endif
-  endfor
-  execute 'bdelete'.a:bang.' '.btarget
-  execute wcurrent.'wincmd w'
-endfunction
-command! -bang -complete=buffer -nargs=? Bclose call <SID>Bclose(<q-bang>, <q-args>)
-nnoremap <silent> <Leader>bd :Bclose<CR>
-
-map gn :bn<cr>
-map gp :bp<cr>
-map gw :Bclose<cr>
-
-" Run Python and C files by Ctrl+h
-autocmd FileType python map <buffer> <C-h> :w<CR>:exec '!python3.10' shellescape(@%, 1)<CR>
-autocmd FileType python imap <buffer> <C-h> <esc>:w<CR>:exec '!python3.10' shellescape(@%, 1)<CR>
-
-autocmd FileType c map <buffer> <C-h> :w<CR>:exec '!gcc' shellescape(@%, 1) '-o out; ./out'<CR>
-autocmd FileType c imap <buffer> <C-h> <esc>:w<CR>:exec '!gcc' shellescape(@%, 1) '-o out; ./out'<CR>
-
-autocmd FileType python set colorcolumn=79
-
-set relativenumber
-set rnu
-
-let g:transparent_enabled = v:true
-
-tnoremap <Esc> <C-\><C-n>
-
-" Telescope bindings
-nnoremap ,f <cmd>Telescope find_files<cr>
-nnoremap ,g <cmd>Telescope live_grep<cr>
-
-" Go to next or prev tab by H and L accordingly
-nnoremap H gT
-nnoremap L gt
-
-" Autosave plugin
-lua << EOF
-require("auto-save").setup({
-        enabled = true,
-            execution_message = {
-		    message = function() -- message to print on save
-			        return ("AutoSave: saved at " .. vim.fn.strftime("%H:%M:%S"))
-		        end,
-		        dim = 0.18, -- dim the color of `message`
-		        cleaning_interval = 1250, -- (milliseconds) automatically clean MsgArea after displaying `message`. See :h MsgArea
-	      },
-        events = {"InsertLeave", "TextChanged"},
-        conditions = {
-            exists = true,
-            filename_is_not = {},
-            filetype_is_not = {},
-            modifiable = true
-        },
-        write_all_buffers = false,
-        on_off_commands = true,
-        clean_command_line_interval = 0,
-        debounce_delay = 135,
-})
-EOF
-
-" Telescope fzf plugin
-lua << EOF
-require('telescope').load_extension('fzf')
-EOF
-
-" Fast component creating for React app
-command CreateComponent :terminal '/Users/alexeygoloburdin/code/lms/frontend/createcomponent.py'
-
-" White colors for LSP messages in code
-set termguicolors
-hi DiagnosticError guifg=White
-hi DiagnosticWarn  guifg=White
-hi DiagnosticInfo  guifg=White
-hi DiagnosticHint  guifg=White
-
